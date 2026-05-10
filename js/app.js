@@ -116,17 +116,25 @@ function startTracking() {
     elements.btnIcon.className = 'ti ti-player-pause-filled';
     
     state.startTime = Date.now();
+    state.hasMotionData = false;
     
-    // Try to use Motion API
+    // Try real sensors first
     if (typeof DeviceMotionEvent !== 'undefined') {
         startRealPedometer();
+        
+        // Safety fallback: if no motion detected in 10s, use demo
+        state.fallbackTimeout = setTimeout(() => {
+            if (!state.hasMotionData && state.running) {
+                console.log('No motion data detected, switching to demo mode');
+                startDemoPedometer();
+            }
+        }, 10000);
     } else {
         startDemoPedometer();
     }
 
     state.timer = setInterval(updateUI, 1000);
     
-    // Haptic Feedback if available
     if (tg.HapticFeedback) {
         tg.HapticFeedback.notificationOccurred('success');
     }
@@ -139,9 +147,11 @@ function stopTracking() {
     
     clearInterval(state.timer);
     if (state.demoInterval) clearInterval(state.demoInterval);
+    if (state.fallbackTimeout) clearTimeout(state.fallbackTimeout);
     
     if (state.motionHandler) {
         window.removeEventListener('devicemotion', state.motionHandler);
+        state.motionHandler = null;
     }
     
     elements.tempoVal.textContent = '—';
@@ -155,9 +165,8 @@ function stopTracking() {
  * Pedometer Logic
  */
 function startRealPedometer() {
-    const requestPermission = DeviceMotionEvent.requestPermission;
-    if (typeof requestPermission === 'function') {
-        requestPermission().then(response => {
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(response => {
             if (response === 'granted') {
                 attachMotion();
             } else {
@@ -174,32 +183,56 @@ function startRealPedometer() {
 
 function attachMotion() {
     state.motionHandler = (e) => {
-        const a = e.accelerationIncludingGravity;
-        if (!a) return;
+        const a = e.accelerationIncludingGravity || e.acceleration;
+        if (!a || (a.x === null && a.y === null)) return;
+        
+        state.hasMotionData = true; // We are getting signals!
         
         const mag = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+        
+        // Initialize lastMag on first run to avoid jump
+        if (state.lastMag === 0) {
+            state.lastMag = mag;
+            return;
+        }
+
         const delta = Math.abs(mag - state.lastMag);
         const now = Date.now();
         
-        if (delta > CONFIG.THRESHOLD && (now - state.lastPeakTime) > CONFIG.MIN_STEP_MS) {
-            state.steps++;
+        // Adjusted threshold for better sensitivity
+        if (delta > 10 && (now - state.lastPeakTime) > CONFIG.MIN_STEP_MS) {
+            registerStep();
             state.lastPeakTime = now;
-            updateUI();
         }
         state.lastMag = mag;
     };
     window.addEventListener('devicemotion', state.motionHandler);
 }
 
+function registerStep() {
+    state.steps++;
+    updateUI();
+    
+    // Add a tiny animation effect to the number
+    elements.stepCount.classList.remove('bump');
+    void elements.stepCount.offsetWidth; // Trigger reflow
+    elements.stepCount.classList.add('bump');
+
+    if (tg.HapticFeedback && state.steps % 10 === 0) {
+        tg.HapticFeedback.impactOccurred('light');
+    }
+}
+
 function startDemoPedometer() {
+    if (state.demoInterval) return;
+    console.log('Demo mode active');
     let acc = 0;
     state.demoInterval = setInterval(() => {
-        acc += Math.random() * 0.4;
+        acc += Math.random() * 0.45;
         if (acc >= 1) {
             const add = Math.floor(acc);
-            state.steps += add;
+            for(let i=0; i<add; i++) registerStep();
             acc -= add;
-            updateUI();
         }
     }, 400);
 }

@@ -64,6 +64,8 @@ body {
     z-index: 10;
 }
 
+
+
 /* Header */
 .main-header {
     padding: 20px 24px;
@@ -476,4 +478,15 @@ body {
 @media (max-width: 380px) {
     .steps-main .count { font-size: 48px; }
     .content { padding: 0 16px 100px; }
+}
+/* Animations */
+@keyframes bump {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); color: var(--accent-primary); }
+    100% { transform: scale(1); }
+}
+
+.bump {
+    animation: bump 0.3s ease-out;
+    display: inline-block;
 }
