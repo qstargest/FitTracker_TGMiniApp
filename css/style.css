@@ -57,17 +57,11 @@ body {
 .status-bar {
     padding: 12px 24px;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     font-size: 14px;
     font-weight: 600;
     z-index: 10;
-}
-
-.status-icons {
-    display: flex;
-    gap: 8px;
-    font-size: 16px;
 }
 
 /* Header */
