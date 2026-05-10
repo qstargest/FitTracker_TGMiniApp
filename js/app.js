@@ -13,7 +13,7 @@ const CONFIG = {
     STEP_CALORIES: 0.04,
     STEP_DISTANCE: 0.00075, // km
     THRESHOLD: 3,
-    MIN_STEP_MS: 300,
+    MIN_STEP_MS: 350,
     WEEK_DAYS: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 };
 
@@ -120,30 +120,25 @@ function startTracking() {
     state.stepCountAtStart = state.steps;
     
     // Try real sensors first
-    if (typeof DeviceMotionEvent !== 'undefined') {
+      if (typeof DeviceMotionEvent !== 'undefined') {
         startRealPedometer();
-        
-        // Safety fallback: if no motion detected in 10s, use demo
+
         state.fallbackTimeout = setTimeout(() => {
             if (!state.hasMotionData && state.running) {
-                console.log('Нет данных сенсора — демо-режим');
                 startDemoPedometer();
             }
-        }, 3000);
+        }, 4000);
 
-
-    state.stepFallbackTimeout = setTimeout(() => {
+        state.stepFallbackTimeout = setTimeout(() => {
             if (state.hasMotionData && state.steps === state.stepCountAtStart && state.running) {
-                console.log('Сенсор есть, шаги не считаются — демо-режим');
                 startDemoPedometer();
             }
-        }, 5000);
-    } else {
+        }, 8000); 
+    } else {        
         startDemoPedometer();
     }
 
     state.timer = setInterval(updateUI, 1000);
-
     if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
 }
 
@@ -154,6 +149,7 @@ function stopTracking() {
     
     clearInterval(state.timer);
     if (state.demoInterval) clearInterval(state.demoInterval);
+    clearTimeout(state.fallbackTimeout);
     if (state.stepFallbackTimeout) clearTimeout(state.stepFallbackTimeout);
     
     if (state.motionHandler) {
@@ -189,38 +185,43 @@ function startRealPedometer() {
 }
 
 function attachMotion() {
-    let lastValues = [];
+    const BASELINE_WINDOW = 25;
+    const STEP_THRESHOLD = 1.5; 
+    const MIN_STEP_MS = 350;
+
+    let buffer = [];
+    let lastStepTime = 0;
+    let prevAboveThreshold = false;
 
     state.motionHandler = (e) => {
-        const a = e.accelerationIncludingGravity || e.acceleration;
+        const a = (e.acceleration?.x != null)
+            ? e.acceleration
+            : e.accelerationIncludingGravity;
         if (!a) return;
 
         const x = a.x || 0, y = a.y || 0, z = a.z || 0;
-        if (x === 0 && y === 0 && z === 0) return;
-        
-        state.hasMotionData = true; // We are getting signals!
-        
         const mag = Math.sqrt(x * x + y * y + z * z);
-        lastValues.push(mag);
-        if (lastValues.length > 4) lastValues.shift();
+        if (mag === 0) return;
 
-        const avg = lastValues.reduce((s, v) => s + v, 0) / lastValues.length;
-        const delta = Math.abs(mag - avg);
+        state.hasMotionData = true;
+
+        buffer.push(mag);
+        if (buffer.length > BASELINE_WINDOW) buffer.shift();
+        if (buffer.length < BASELINE_WINDOW) return; // ждём накопления
+
+        const mean = buffer.reduce((s, v) => s + v, 0) / buffer.length;
+        const aboveThreshold = mag > mean + STEP_THRESHOLD;
         const now = Date.now();
+
         
-        // Initialize lastMag on first run to avoid jump
-        //if (state.lastMag === 0) {
-            //state.lastMag = mag;
-           // return;
-        //}
-        
-        // Adjusted threshold for better sensitivity
-        if (delta > CONFIG.THRESHOLD && (now - state.lastPeakTime) > CONFIG.MIN_STEP_MS) {
+        if (aboveThreshold && !prevAboveThreshold && (now - lastStepTime) > MIN_STEP_MS) {
             registerStep();
-            state.lastPeakTime = now;
+            lastStepTime = now;
         }
-        state.lastMag = mag;
+
+        prevAboveThreshold = aboveThreshold;
     };
+
     window.addEventListener('devicemotion', state.motionHandler);
 }
 
