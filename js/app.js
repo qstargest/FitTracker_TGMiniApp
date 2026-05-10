@@ -12,8 +12,8 @@ const CONFIG = {
     GOAL: 10000,
     STEP_CALORIES: 0.04,
     STEP_DISTANCE: 0.00075, // km
-    THRESHOLD: 12,
-    MIN_STEP_MS: 280,
+    THRESHOLD: 3,
+    MIN_STEP_MS: 300,
     WEEK_DAYS: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 };
 
@@ -117,6 +117,7 @@ function startTracking() {
     
     state.startTime = Date.now();
     state.hasMotionData = false;
+    state.stepCountAtStart = state.steps;
     
     // Try real sensors first
     if (typeof DeviceMotionEvent !== 'undefined') {
@@ -125,19 +126,25 @@ function startTracking() {
         // Safety fallback: if no motion detected in 10s, use demo
         state.fallbackTimeout = setTimeout(() => {
             if (!state.hasMotionData && state.running) {
-                console.log('No motion data detected, switching to demo mode');
+                console.log('Нет данных сенсора — демо-режим');
                 startDemoPedometer();
             }
-        }, 10000);
+        }, 3000);
+
+
+    state.stepFallbackTimeout = setTimeout(() => {
+            if (state.hasMotionData && state.steps === state.stepCountAtStart && state.running) {
+                console.log('Сенсор есть, шаги не считаются — демо-режим');
+                startDemoPedometer();
+            }
+        }, 5000);
     } else {
         startDemoPedometer();
     }
 
     state.timer = setInterval(updateUI, 1000);
-    
-    if (tg.HapticFeedback) {
-        tg.HapticFeedback.notificationOccurred('success');
-    }
+
+    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
 }
 
 function stopTracking() {
@@ -147,7 +154,7 @@ function stopTracking() {
     
     clearInterval(state.timer);
     if (state.demoInterval) clearInterval(state.demoInterval);
-    if (state.fallbackTimeout) clearTimeout(state.fallbackTimeout);
+    if (state.stepFallbackTimeout) clearTimeout(state.stepFallbackTimeout);
     
     if (state.motionHandler) {
         window.removeEventListener('devicemotion', state.motionHandler);
@@ -182,25 +189,33 @@ function startRealPedometer() {
 }
 
 function attachMotion() {
+    let lastValues = [];
+
     state.motionHandler = (e) => {
         const a = e.accelerationIncludingGravity || e.acceleration;
-        if (!a || (a.x === null && a.y === null)) return;
+        if (!a) return;
+
+        const x = a.x || 0, y = a.y || 0, z = a.z || 0;
+        if (x === 0 && y === 0 && z === 0) return;
         
         state.hasMotionData = true; // We are getting signals!
         
-        const mag = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
-        
-        // Initialize lastMag on first run to avoid jump
-        if (state.lastMag === 0) {
-            state.lastMag = mag;
-            return;
-        }
+        const mag = Math.sqrt(x * x + y * y + z * z);
+        lastValues.push(mag);
+        if (lastValues.length > 4) lastValues.shift();
 
-        const delta = Math.abs(mag - state.lastMag);
+        const avg = lastValues.reduce((s, v) => s + v, 0) / lastValues.length;
+        const delta = Math.abs(mag - avg);
         const now = Date.now();
         
+        // Initialize lastMag on first run to avoid jump
+        //if (state.lastMag === 0) {
+            //state.lastMag = mag;
+           // return;
+        //}
+        
         // Adjusted threshold for better sensitivity
-        if (delta > 10 && (now - state.lastPeakTime) > CONFIG.MIN_STEP_MS) {
+        if (delta > CONFIG.THRESHOLD && (now - state.lastPeakTime) > CONFIG.MIN_STEP_MS) {
             registerStep();
             state.lastPeakTime = now;
         }
