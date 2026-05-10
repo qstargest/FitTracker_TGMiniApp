@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FitTrack - Твой Фитнес Помощник</title>
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="Умный фитнес-трекер в Telegram. Считай шаги, сжигай калории и тренируйся эффективно.">
+    <meta property="og:title" content="FitTrack - Твой Фитнес Помощник">
+    <meta property="og:description" content="Умный фитнес-трекер в Telegram.">
+    
+    <!-- Telegram Web App Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Status Bar (For Preview) -->
+        <div class="status-bar">
+            <span class="time" id="current-time">9:41</span>
+            <div class="status-icons">
+                <i class="ti ti-wifi"></i>
+                <i class="ti ti-battery-4"></i>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header class="main-header">
+            <div class="user-info">
+                <h1 id="app-title">FitTrack</h1>
+                <p class="greeting" id="user-greeting">Привет, <span id="user-name">Спортсмен</span>! 👋</p>
+            </div>
+            <div class="avatar-container" id="user-avatar">
+                <div class="avatar-fallback">🏃</div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="content">
+            <!-- Steps Progress Card -->
+            <section class="card steps-card">
+                <div class="card-bg-decoration"></div>
+                <h2 class="label">Шаги сегодня</h2>
+                <div class="steps-main">
+                    <span class="count" id="stepCount">0</span>
+                    <div class="goal">из <span id="goalDisplay">10 000</span></div>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-details">
+                        <span class="percentage" id="progressPct">0%</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Control Button -->
+            <button class="action-btn" id="recBtn">
+                <div class="pulse-ring"></div>
+                <div class="btn-content">
+                    <i class="ti ti-player-play-filled" id="btn-icon"></i>
+                    <span id="recLabel">Начать тренировку</span>
+                </div>
+            </button>
+
+            <!-- Stats Grid -->
+            <section class="stats-grid">
+                <div class="stat-item glass">
+                    <div class="icon-wrap calories"><i class="ti ti-flame"></i></div>
+                    <div class="stat-info">
+                        <div class="stat-value"><span id="calVal">0</span> <small>ккал</small></div>
+                        <div class="stat-label">Калории</div>
+                    </div>
+                </div>
+                <div class="stat-item glass">
+                    <div class="icon-wrap distance"><i class="ti ti-map-pin"></i></div>
+                    <div class="stat-info">
+                        <div class="stat-value"><span id="distVal">0.0</span> <small>км</small></div>
+                        <div class="stat-label">Дистанция</div>
+                    </div>
+                </div>
+                <div class="stat-item glass">
+                    <div class="icon-wrap activity"><i class="ti ti-clock"></i></div>
+                    <div class="stat-info">
+                        <div class="stat-value"><span id="timeVal">0</span> <small>мин</small></div>
+                        <div class="stat-label">Активность</div>
+                    </div>
+                </div>
+                <div class="stat-item glass">
+                    <div class="icon-wrap pace"><i class="ti ti-bolt"></i></div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="tempoVal">—</div>
+                        <div class="stat-label">Темп</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Video Section -->
+            <section class="video-section">
+                <div class="section-header">
+                    <h3>Видео тренировки</h3>
+                    <a href="#" class="view-all">Все</a>
+                </div>
+                <div class="video-slider">
+                    <div class="video-item" data-category="yoga">
+                        <div class="thumb yoga">🧘</div>
+                        <div class="play-btn"><i class="ti ti-player-play"></i></div>
+                        <div class="video-meta">
+                            <h4>Утренняя йога</h4>
+                            <span>15 мин</span>
+                        </div>
+                    </div>
+                    <div class="video-item" data-category="strength">
+                        <div class="thumb strength">🏋️</div>
+                        <div class="play-btn"><i class="ti ti-player-play"></i></div>
+                        <div class="video-meta">
+                            <h4>Силовая</h4>
+                            <span>30 мин</span>
+                        </div>
+                    </div>
+                    <div class="video-item" data-category="cardio">
+                        <div class="thumb cardio">🚴</div>
+                        <div class="play-btn"><i class="ti ti-player-play"></i></div>
+                        <div class="video-meta">
+                            <h4>Кардио</h4>
+                            <span>20 мин</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Weekly Chart -->
+            <section class="card chart-card">
+                <h3>Активность за неделю</h3>
+                <div class="chart-container" id="weekBars">
+                    <!-- Bars injected via JS -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" id="nav-home">
+                <i class="ti ti-smart-home"></i>
+                <span>Главная</span>
+            </button>
+            <button class="nav-btn" id="nav-stats">
+                <i class="ti ti-chart-bar"></i>
+                <span>Статы</span>
+            </button>
+            <button class="nav-btn" id="nav-workouts">
+                <i class="ti ti-barbell"></i>
+                <span>Зал</span>
+            </button>
+            <button class="nav-btn" id="nav-profile">
+                <i class="ti ti-user"></i>
+                <span>Профиль</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="js/app.js"></script>
+</body>
+</html>
